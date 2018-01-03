@@ -1,0 +1,251 @@
+<head>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+</head>
+
+<body bgcolor="#00EBC7">
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<script language="javascript">
+
+function deg2rad(degrees)
+{
+	return degrees * ( Math.PI /180);
+}
+
+function getRandomInt(min, max) {
+	min = Math.ceil(min);
+	max = Math.floor(max);
+	return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+}
+
+
+function countNewPosition(xCoord, yCoord, angle, length) {
+    //angle = angle * Math.PI / 180; // if you're using degrees instead of radians
+    return {x: length * Math.cos(angle) + xCoord, y: length * Math.sin(angle) + yCoord};
+}
+
+function countAngle(p1x, p1y, p2x, p2y) {
+	return Math.atan2(p2y - p1y, p2x - p1x);//this is in radians
+}
+
+function getDistance( x1, y1, x2, y2 ) {
+	
+	var xs = x2 - x1,
+	ys = y2 - y1;		
+	
+	xs *= xs;
+	ys *= ys;
+	
+	return Math.sqrt( xs + ys );
+};
+
+function DotClass() {
+	
+	var id = 0;
+	var team = 1;//or 2
+	var x = 200;
+	var y = 200;
+	var behavior = "approach";//Or "escape"
+	var speed = 10;
+	var maxspeed = 10;
+	var angle = 0;
+	var color = "blue";
+	var radius = 7;
+	var attention = false;
+	var readyToRemove = false;
+	var hp = 100;
+	var maxhp = 100;
+	var strength = 10;
+	var bravery = 100;
+	var energy = 100;
+	var maxenergy = 100;
+	var regenSpeed = 3;
+	
+	this.draw = function() {
+		this.radius = Math.floor(this.hp/15+4);
+		colorCircle(this.x, this.y, this.radius, this.color);
+	}
+	
+	this.attack = function(enemy) {
+		var hit = getRandomInt(this.strength*this.hp/this.maxhp, this.strength);
+		enemy.hp -= hit;
+		enemy.bravery -= hit;
+		if (enemy.hp<=0) enemy.perish();
+	}
+	
+	this.perish = function() {
+		this.readyToRemove = true;
+	}
+	
+	this.lookAround = function(dotlist) {
+		var viewrange = 80;
+		var olddistance = viewrange + 1;//Setting this makes sure that things outside the range won't trigger this
+		var enemy = false;
+		var attackdist = 5;
+		
+		for (i = 0; i < dotlist.length; i++) {
+			if (dotlist[i].team!=this.team) {
+				enemy = dotlist[i];
+				var distance = getDistance(this.x, this.y, enemy.x, enemy.y);
+				if (distance<olddistance) {
+					olddistance = distance;
+					if (this.behavior == "approach") this.angle = countAngle(this.x, this.y, enemy.x, enemy.y);
+					else this.angle = countAngle(enemy.x, enemy.y, this.x, this.y);//This is the reverse angle
+					this.attention = enemy;
+					this.speed = this.maxspeed;
+				}
+				if (distance<=attackdist) this.attack(enemy);
+			}
+			
+		}
+		if (!enemy||olddistance>viewrange) {
+			this.attention = false;
+			this.speed = Math.max(this.speed*0.6, 3);
+			this.regenHP();
+		}
+	}
+	
+	this.regenHP = function() {
+		if (this.hp<this.maxhp) this.hp = Math.min(this.hp + this.regenSpeed, this.maxhp);
+	}
+	
+	this.move = function() {
+		if (this.behavior == "approach"&&(this.bravery<10||this.hp<10)) this.behavior = "escape";
+		this.bravery += 2;
+		if (this.behavior == "escape"&&this.bravery>20&&this.hp>10) this.behavior = "approach";
+		if (!this.attention) this.veer();//if this isn't targeting anything, it can change course at random
+		if (this.energy>0) {
+			var coords = countNewPosition(this.x, this.y, this.angle, this.speed);
+			
+			this.x = Math.min(areawidth, ( Math.max( 0, coords.x ) ) );
+			this.y = Math.min(areaheight, ( Math.max( 0, coords.y ) ) );
+			
+			if (this.x==0||this.x == areawidth) this.angle = -Math.PI - this.angle;
+			if (this.y==0||this.y == areaheight) this.angle = -this.angle;
+			
+			this.energy -= (this.speed/this.maxspeed*3);
+		}
+		else this.energy += 5;
+	}
+	
+	this.veer = function() {
+		//Changes angle at random
+		var change = 0;
+		var rand = getRandomInt(0, 5);
+		if (rand==1) change=1;//small changes are more likely
+		else if (rand==2) change=getRandomInt(2, 6);
+		else if (rand==3) change=getRandomInt(3, 11);
+		else if (rand==4) change=getRandomInt(4, 16);
+		else if (rand==5) change=getRandomInt(5, 20);
+		
+		if (getRandomInt(0, 2)==0) this.angle += deg2rad(change);
+		else this.angle -= deg2rad(change);	
+	}
+	
+}
+
+var areawidth = 800;
+var areaheight = 600;
+var dotlist = [];
+var counter = 0;
+var pplCounter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];//Team 0 doesn't exist. Initialize more if you add teams
+
+window.onload = function() {
+	canvas = document.getElementById('gameCanvas');
+	canvasContext = canvas.getContext('2d');
+	
+	for (i = 0; i<200; i++) {
+		addDot(1, "red");
+		addDot(2, "blue");
+		addDot(3, "green");
+		addDot(4, "yellow");
+		addDot(5, "cyan");
+		addDot(6, "orange");
+		//addDot(7, "magenta");
+		//addDot(8, "gray");
+		//addDot(9, "brown");
+		//addDot(10, "purple");
+	}
+	
+	var framesPerSecond = 30;
+	setInterval(process, 1000/framesPerSecond);
+}
+
+function addDot(team, color) {
+	var tempDot = new DotClass();
+	tempDot.id = counter;
+	tempDot.x = Math.random() * canvas.width;
+	tempDot.y = Math.random() * canvas.height;
+	tempDot.team = team;
+	tempDot.speed = Math.random()*4 + 4;
+	tempDot.maxspeed = tempDot.speed + 2;
+	tempDot.angle = Math.PI;
+	tempDot.color = color;
+	tempDot.radius = 7;
+	tempDot.hp = 100;
+	tempDot.maxhp = 100;
+	tempDot.strength = Math.random()*10 + 5;
+	tempDot.behavior = "approach";
+	tempDot.energy = 100;
+	tempDot.maxenergy = 100;
+	tempDot.regenSpeed = Math.random()*3+0.5;
+	tempDot.bravery = 100;
+	dotlist.push( tempDot );
+	counter ++;
+	pplCounter[team]++;
+}
+
+function process() {
+	for (i = 0; i< dotlist.length; i++) {
+		dotlist[i].lookAround(dotlist);
+		dotlist[i].move();
+		
+	}
+	
+	for(var i=dotlist.length-1;i>=0;i--) {
+		if(dotlist[i].readyToRemove) {
+			pplCounter[dotlist[i].team]--;
+			dotlist.splice(i,1);
+		}
+	}
+	redrawEverything();
+}
+
+function redrawEverything() {
+	canvasContext.globalAlpha = 0.2;
+	colorRect(0,0, canvas.width,canvas.height, 'black');
+	canvasContext.globalAlpha = 1.0;
+	for (i = 0; i< dotlist.length; i++) {
+		dotlist[i].draw();
+	}
+	printTexts();
+}
+
+function printTexts() {
+	canvasContext.font = "20px Arial";
+	canvasContext.fillStyle = "white";
+	canvasContext.fillText("Members left:", 15, 30);
+	var lineheight = 25;
+	var txt = "";
+	for (i=1; i<pplCounter.length; i++) {
+		txt = "Team " + i + ": " + pplCounter[i];
+		canvasContext.fillText(txt, 15, 30+(i*lineheight));
+	}
+	
+}
+
+function colorRect(topLeftX, topLeftY, boxWidth, boxHeight, fillColor) {
+	canvasContext.fillStyle = fillColor;
+	canvasContext.fillRect(topLeftX, topLeftY, boxWidth, boxHeight);
+}
+
+function colorCircle(centerX, centerY, radius, fillColor) {
+	canvasContext.fillStyle = fillColor;
+	canvasContext.beginPath();
+	canvasContext.arc(centerX, centerY, radius, 0,Math.PI*2, true);
+	canvasContext.fill();
+}
+
+</script>
+</body>
+</html>
