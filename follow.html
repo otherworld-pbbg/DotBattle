@@ -51,7 +51,7 @@ function DotClass() {
 	this.lookAround = function(dotlist, distances, mykey) {
 		var viewrange = 80;
 		var olddistance = viewrange + 1;//Setting this makes sure that things outside the range won't trigger this
-		var olddistance2 = 15;
+		var olddistance2 = 20;
 		var tooclose = false;
 		var enemy = false;
 		var attackdist = 5;
@@ -120,7 +120,7 @@ function DotClass() {
 		if (this.behavior == "approach"&&(this.bravery<10||this.hp<10)) this.behavior = "escape";
 		this.bravery += 2;
 		if (this.behavior == "escape"&&this.bravery>20&&this.hp>10) this.behavior = "approach";
-		//if (!this.attention) this.veer();//if this isn't targeting anything, it can change course at random
+		if (!this.attention) this.veer();//if this isn't targeting anything, it can change course at random
 		if (this.energy>0) {
 			var coords = countNewPosition(this.x, this.y, this.angle, this.speed);
 			
@@ -183,16 +183,16 @@ var followers = [];
 var counter = 0;
 var distances = [];
 var teams = [
-	"red",
-	"blue",
+	//"red",
+	//"blue",
 	"green",
 	"yellow",
-	"cyan",
+	//"cyan",
 	"orange",
-	"magenta",
-	"gray",
-	"brown",
-	"purple"
+	//"magenta",
+	//"gray",
+	//"brown",
+	//"purple"
 ];
 //var sums = [];
 
@@ -203,7 +203,7 @@ window.onload = function() {
 		createRabbit(i);
 		//sums.push( {xsum: 0, ysum: 0, members: 0, xavg: 0, yavg: 0});
 	}
-	for (i = 0; i<100; i++) {
+	for (i = 0; i<200; i++) {
 		for (j = 0; j<teams.length; j++) {
 			addDot(j, teams[j], rabbits[j]);
 		}
@@ -227,8 +227,9 @@ function addDot(team, color, leader) {
 	var tempDot = new DotClass();
 	tempDot.id = counter;
 	tempDot.leader = leader;
-	tempDot.x = Math.random() * canvas.width;
-	tempDot.y = Math.random() * canvas.height;
+	var np = countNewPosition(leader.x, leader.y, Math.random()*Math.PI*2, Math.random()*250+10);
+	tempDot.x = np.x;
+	tempDot.y = np.y;
 	tempDot.team = team;
 	tempDot.speed = Math.random()*2 + 3;
 	tempDot.maxspeed = tempDot.speed + 2;
@@ -241,7 +242,7 @@ function addDot(team, color, leader) {
 	tempDot.behavior = "approach";
 	tempDot.energy = 100;
 	tempDot.maxenergy = 100;
-	tempDot.regenSpeed = Math.random()*3+0.5;
+	tempDot.regenSpeed = Math.random()*2+0.5;
 	tempDot.bravery = 100;
 	followers.push( tempDot );
 	counter++;
