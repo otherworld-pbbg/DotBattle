@@ -51,12 +51,13 @@ function DotClass() {
 	this.lookAround = function(dotlist, distances, mykey) {
 		var viewrange = 80;
 		var olddistance = viewrange + 1;//Setting this makes sure that things outside the range won't trigger this
-		var olddistance2 = 8;
+		var olddistance2 = 15;
 		var tooclose = false;
 		var enemy = false;
 		var attackdist = 5;
 		var closestFriend = false;
 		this.attention = false;
+		
 		
 		for (i = 0; i < distances.length; i++) {
 			var encounter = distances[i];
@@ -95,7 +96,10 @@ function DotClass() {
 			if (this.behavior == "approach") this.angle = countAngle(this.x, this.y, this.attention.x, this.attention.y);
 			else this.angle = countAngle(this.attention.x, this.attention.y, this.x, this.y);//This is the reverse angle
 			this.speed = this.maxspeed;
-			if (olddistance<=attackdist) this.attack(this.attention);
+			if (Math.floor(olddistance)<=attackdist) {
+				this.attack(this.attention);
+				this.speed = 0.5;
+			}
 		}
 		else {
 			this.angle = countAngle(this.x, this.y, this.leader.x, this.leader.y);
@@ -178,24 +182,31 @@ var rabbits = [];
 var followers = [];
 var counter = 0;
 var distances = [];
+var teams = [
+	"red",
+	"blue",
+	"green",
+	"yellow",
+	"cyan",
+	"orange",
+	"magenta",
+	"gray",
+	"brown",
+	"purple"
+];
+//var sums = [];
 
 window.onload = function() {
 	canvas = document.getElementById('myCanvas');
 	canvasContext = canvas.getContext('2d');
-	for (i = 0; i<1; i++) {
-		createRabbit(i+1);
+	for (i = 0; i<teams.length; i++) {
+		createRabbit(i);
+		//sums.push( {xsum: 0, ysum: 0, members: 0, xavg: 0, yavg: 0});
 	}
 	for (i = 0; i<100; i++) {
-		addDot(1, "red", rabbits[0]);
-		//addDot(2, "blue", rabbits[1]);
-		//addDot(3, "green", rabbits[2]);
-		//addDot(4, "yellow", rabbits[3]);
-		//addDot(5, "cyan", rabbits[4]);
-		//addDot(6, "orange");
-		//addDot(7, "magenta");
-		//addDot(8, "gray");
-		//addDot(9, "brown");
-		//addDot(10, "purple");
+		for (j = 0; j<teams.length; j++) {
+			addDot(j, teams[j], rabbits[j]);
+		}
 	}
 	
 	var framesPerSecond = 30;
@@ -206,7 +217,7 @@ function createRabbit(team) {
 	var temp = new Rabbit();
 	temp.x = Math.random() * canvas.width;
 	temp.y = Math.random() * canvas.height;
-	temp.speed = 5;
+	temp.speed = 4;
 	temp.angle = Math.random() * (Math.PI*2);
 	temp.team = team;
 	rabbits.push( temp );
@@ -219,7 +230,7 @@ function addDot(team, color, leader) {
 	tempDot.x = Math.random() * canvas.width;
 	tempDot.y = Math.random() * canvas.height;
 	tempDot.team = team;
-	tempDot.speed = Math.random()*4 + 4;
+	tempDot.speed = Math.random()*2 + 3;
 	tempDot.maxspeed = tempDot.speed + 2;
 	tempDot.angle = Math.PI;
 	tempDot.color = color;
@@ -246,19 +257,27 @@ function process() {
 	
 	for (i = 0; i<followers.length; i++) {
 		var dude1 = followers[i];
+		//sums[dude1.team].xsum += dude1.x;
+		//sums[dude1.team].ysum += dude1.y;
+		//sums[dude1.team].members += 1;
 		for (j=0; j<i; j++) {
 			var dude2 = followers[j];
-			distances.push( {
+			var d = getDistance(dude1.x, dude1.y, dude2.x, dude2.y);
+			if (d<81) distances.push( {
 				dude1: i,
 				dude2: j,
-				dist: getDistance(dude1.x, dude1.y, dude2.x, dude2.y)
+				dist: d
 			});
 		}
 	}
-	
+	/*
+	for (i = 0; i< teams.length; i++) {
+		sums[i].xavg = sums[i].xsum/sums[i].members;
+		sums[i].yavg = sums[i].ysum/sums[i].members;
+	}
+	*/
 	for (i = 0; i< followers.length; i++) {
-		
-		followers[i].lookAround(followers, distances, i);
+		followers[i].lookAround(followers, distances, i/*, sums*/);
 		followers[i].move();	
 	}
 	

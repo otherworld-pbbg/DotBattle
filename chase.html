@@ -35,6 +35,11 @@ function DotClass() {
 	this.draw = function() {
 		this.radius = Math.floor(this.hp/15+4);
 		colorCircle(this.x, this.y, this.radius, this.color);
+		/*
+		canvasContext.font = "10px Arial";
+		canvasContext.fillStyle = "white";
+		canvasContext.fillText(Math.floor(this.id), this.x+10, this.y+10);
+		*/
 	}
 	
 	this.attack = function(enemy) {
@@ -48,29 +53,43 @@ function DotClass() {
 		this.readyToRemove = true;
 	}
 	
-	this.lookAround = function(dotlist) {
+	this.lookAround = function(dotlist, distances, mykey) {
 		var viewrange = 80;
 		var olddistance = viewrange + 1;//Setting this makes sure that things outside the range won't trigger this
-		var enemy = false;
 		var attackdist = 5;
+		this.attention = false;
 		
-		for (i = 0; i < dotlist.length; i++) {
-			if (dotlist[i].team!=this.team) {
-				enemy = dotlist[i];
-				var distance = getDistance(this.x, this.y, enemy.x, enemy.y);
-				if (distance<olddistance) {
-					olddistance = distance;
-					if (this.behavior == "approach") this.angle = countAngle(this.x, this.y, enemy.x, enemy.y);
-					else this.angle = countAngle(enemy.x, enemy.y, this.x, this.y);//This is the reverse angle
-					this.attention = enemy;
-					this.speed = this.maxspeed;
-				}
-				if (distance<=attackdist) this.attack(enemy);
-			}
+		for (i = 0; i < distances.length; i++) {
+			var encounter = distances[i];
 			
+			if (encounter.dude1 == mykey) {
+				if (dotlist[encounter.dude2].team != this.team) {
+					if (encounter.dist<olddistance) {
+						olddistance = encounter.dist;
+						this.attention = dotlist[encounter.dude2];
+					}
+				}
+			}
+			else if (encounter.dude2 == mykey) {
+				if (dotlist[encounter.dude1].team != this.team) {
+					if (encounter.dist<olddistance) {
+						olddistance = encounter.dist;
+						this.attention = dotlist[encounter.dude1];
+					}
+				}
+			}
 		}
-		if (!enemy||olddistance>viewrange) {
-			this.attention = false;
+		
+		if (this.attention) {
+			if (this.behavior == "approach") this.angle = countAngle(this.x, this.y, this.attention.x, this.attention.y);
+			else this.angle = countAngle(this.attention.x, this.attention.y, this.x, this.y);//This is the reverse angle
+			this.speed = this.maxspeed;
+			if (Math.floor(olddistance)<=attackdist) {
+				this.attack(this.attention);
+				this.speed = 0;
+			}
+		}
+		else {
 			this.speed = Math.max(this.speed*0.6, 3);
 			this.regenHP();
 		}
@@ -78,11 +97,11 @@ function DotClass() {
 	
 	this.regenHP = function() {
 		if (this.hp<this.maxhp) this.hp = Math.min(this.hp + this.regenSpeed, this.maxhp);
+		this.bravery += 2;
 	}
 	
 	this.move = function() {
 		if (this.behavior == "approach"&&(this.bravery<10||this.hp<10)) this.behavior = "escape";
-		this.bravery += 2;
 		if (this.behavior == "escape"&&this.bravery>20&&this.hp>10) this.behavior = "approach";
 		if (!this.attention) this.veer();//if this isn't targeting anything, it can change course at random
 		if (this.energy>0) {
@@ -119,23 +138,33 @@ var areawidth = 800;
 var areaheight = 600;
 var dotlist = [];
 var counter = 0;
-var pplCounter = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];//Team 0 doesn't exist. Initialize more if you add teams
+var distances = [];
+var teams = [
+	//"red",
+	//"blue",
+	"green",
+	"yellow",
+	"cyan",
+	"orange",
+	"magenta",
+	"gray",
+	//"brown",
+	"purple"
+];
+var counters = [];
 
 window.onload = function() {
 	canvas = document.getElementById('gameCanvas');
 	canvasContext = canvas.getContext('2d');
 	
-	for (i = 0; i<200; i++) {
-		addDot(1, "red");
-		addDot(2, "blue");
-		addDot(3, "green");
-		addDot(4, "yellow");
-		addDot(5, "cyan");
-		addDot(6, "orange");
-		//addDot(7, "magenta");
-		//addDot(8, "gray");
-		//addDot(9, "brown");
-		//addDot(10, "purple");
+	for (i = 0; i<teams.length; i++) {
+		counters.push( {members: 0});
+	}
+	
+	for (i = 0; i<50; i++) {
+		for (j = 0; j<teams.length; j++) {
+			addDot(j, teams[j]);
+		}
 	}
 	
 	var framesPerSecond = 30;
@@ -148,7 +177,7 @@ function addDot(team, color) {
 	tempDot.x = Math.random() * canvas.width;
 	tempDot.y = Math.random() * canvas.height;
 	tempDot.team = team;
-	tempDot.speed = Math.random()*4 + 4;
+	tempDot.speed = Math.random()*2 + 3;
 	tempDot.maxspeed = tempDot.speed + 2;
 	tempDot.angle = Math.PI;
 	tempDot.color = color;
@@ -163,19 +192,33 @@ function addDot(team, color) {
 	tempDot.bravery = 100;
 	dotlist.push( tempDot );
 	counter ++;
-	pplCounter[team]++;
+	counters[team].members++;
 }
 
 function process() {
+	distances.splice(0,distances.length);
+	
+	for (i = 0; i<dotlist.length; i++) {
+		var dude1 = dotlist[i];
+		for (j=0; j<i; j++) {
+			var dude2 = dotlist[j];
+			var d = getDistance(dude1.x, dude1.y, dude2.x, dude2.y);
+			if (d<80) distances.push( {
+				dude1: i,
+				dude2: j,
+				dist: d
+			});
+		}
+	}
+	
 	for (i = 0; i< dotlist.length; i++) {
-		dotlist[i].lookAround(dotlist);
-		dotlist[i].move();
-		
+		dotlist[i].lookAround(dotlist, distances, i);
+		dotlist[i].move();	
 	}
 	
 	for(var i=dotlist.length-1;i>=0;i--) {
 		if(dotlist[i].readyToRemove) {
-			pplCounter[dotlist[i].team]--;
+			counters[dotlist[i].team].members--;
 			dotlist.splice(i,1);
 		}
 	}
@@ -198,9 +241,10 @@ function printTexts() {
 	canvasContext.fillText("Members left:", 15, 30);
 	var lineheight = 25;
 	var txt = "";
-	for (i=1; i<pplCounter.length; i++) {
-		txt = "Team " + i + ": " + pplCounter[i];
-		canvasContext.fillText(txt, 15, 30+(i*lineheight));
+	for (i=0; i<counters.length; i++) {
+		canvasContext.fillStyle = teams[i];
+		txt = "Team " + i + ": " + counters[i].members;
+		canvasContext.fillText(txt, 15, 30+((i+1)*lineheight));
 	}
 	
 }
